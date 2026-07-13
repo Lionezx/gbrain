@@ -270,6 +270,10 @@ export async function runThink(
     anchor: opts.anchor,
     questionEmbedding,
     takesHoldersAllowList: opts.takesHoldersAllowList,
+    // advisory-saas fork patch: thread source scope into the gather phase so
+    // page + takes + graph retrieval all filter to the requested client.
+    sourceId: opts.sourceId,
+    sourceIds: opts.allowedSources,
   });
 
   // Render evidence blocks for the prompt

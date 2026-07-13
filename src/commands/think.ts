@@ -9,6 +9,7 @@ import type { BrainEngine } from '../core/engine.ts';
 import { runThink, persistSynthesis } from '../core/think/index.ts';
 import { loadConfig, isThinClient } from '../core/config.ts';
 import { callRemoteTool, unpackToolResult } from '../core/mcp-client.ts';
+import { resolveSourceId } from '../core/source-resolver.ts';
 
 function flagValue(args: string[], name: string): string | undefined {
   const i = args.indexOf(name);
@@ -51,7 +52,7 @@ prints what would have been the input (exit 0).
   }
 
   // Strip flags from positional args
-  const flagNames = ['--anchor', '--rounds', '--model', '--since', '--until'];
+  const flagNames = ['--anchor', '--rounds', '--model', '--since', '--until', '--source'];
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -74,6 +75,18 @@ prints what would have been the input (exit 0).
   const model = flagValue(args, '--model');
   const since = flagValue(args, '--since');
   const until = flagValue(args, '--until');
+  // advisory-saas fork patch (isolation): CLI think previously never threaded the
+  // resolved source into runThink, so it always fell back to sourceId ?? 'default'
+  // (a fail-open scope leak). Resolve via the canonical 6-tier chain
+  // (--source / GBRAIN_SOURCE / .gbrain-source / path / brain-default / 'default')
+  // and pass it through, mirroring cli.ts makeContext.
+  const sourceFlag = flagValue(args, '--source');
+  let sourceId: string | undefined;
+  try {
+    sourceId = await resolveSourceId(engine, sourceFlag ?? null);
+  } catch {
+    sourceId = undefined; // pre-init brain with no sources table — matches makeContext back-compat
+  }
   // v0.36.1.0 (E1, D22) — anti-bias rewrite mode. Off by default (no
   // regression for existing think users). When on, the active calibration
   // profile gets injected per D22 placement (after retrieval, before question).
@@ -110,7 +123,7 @@ prints what would have been the input (exit 0).
   } else {
     try {
       result = await runThink(engine, {
-        question, anchor, rounds, save, take, model, since, until,
+        question, anchor, rounds, save, take, model, since, until, sourceId,
         // #1698: explicit --model → hard error on an unresolvable model (no silent
         // degrade to the no-LLM stub). Omitting --model keeps the graceful default path.
         modelExplicit: !!model,
