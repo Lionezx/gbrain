@@ -314,6 +314,8 @@ export interface TakeHit {
   take_id: number;
   page_id: number;
   page_slug: string;
+  /** Source of the take's parent page — lets scope layers verify take provenance post-hoc. */
+  source_id: string;
   row_num: number;
   claim: string;
   kind: TakeKind;

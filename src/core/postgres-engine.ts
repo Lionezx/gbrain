@@ -4597,14 +4597,23 @@ export class PostgresEngine implements BrainEngine {
   async searchTakes(query: string, opts: SearchOpts & { takesHoldersAllowList?: string[] } = {}): Promise<TakeHit[]> {
     const sql = this.sql;
     const limit = clampSearchLimit(opts.limit, 30, 100);
+    // Source scoping (federated array wins over scalar) — mirrors the hybridSearch
+    // predicate. opts.sourceId/sourceIds were previously accepted but never applied.
+    const sourceIds = opts.sourceIds ?? null;
+    const sourceId = opts.sourceId ?? null;
     const rows = await sql`
-      SELECT t.id AS take_id, t.page_id, p.slug AS page_slug, t.row_num,
+      SELECT t.id AS take_id, t.page_id, p.slug AS page_slug, p.source_id, t.row_num,
              t.claim, t.kind, t.holder, t.weight,
              similarity(t.claim, ${query})::real AS score
       FROM takes t
       JOIN pages p ON p.id = t.page_id
       WHERE t.active
         AND t.claim % ${query}
+        AND (
+          (${sourceIds}::text[] IS NOT NULL AND p.source_id = ANY(${sourceIds}::text[]))
+          OR (${sourceIds}::text[] IS NULL AND ${sourceId}::text IS NOT NULL AND p.source_id = ${sourceId})
+          OR (${sourceIds}::text[] IS NULL AND ${sourceId}::text IS NULL)
+        )
         AND (
           ${opts.takesHoldersAllowList ?? null}::text[] IS NULL
           OR t.holder = ANY(${opts.takesHoldersAllowList ?? null}::text[])
@@ -4622,14 +4631,23 @@ export class PostgresEngine implements BrainEngine {
     const sql = this.sql;
     const limit = clampSearchLimit(opts.limit, 30, 100);
     const vec = `[${Array.from(embedding).join(',')}]`;
+    // Source scoping (federated array wins over scalar) — mirrors the hybridSearch
+    // predicate. opts.sourceId/sourceIds were previously accepted but never applied.
+    const sourceIds = opts.sourceIds ?? null;
+    const sourceId = opts.sourceId ?? null;
     const rows = await sql`
-      SELECT t.id AS take_id, t.page_id, p.slug AS page_slug, t.row_num,
+      SELECT t.id AS take_id, t.page_id, p.slug AS page_slug, p.source_id, t.row_num,
              t.claim, t.kind, t.holder, t.weight,
              (1 - (t.embedding <=> ${vec}::vector))::real AS score
       FROM takes t
       JOIN pages p ON p.id = t.page_id
       WHERE t.active
         AND t.embedding IS NOT NULL
+        AND (
+          (${sourceIds}::text[] IS NOT NULL AND p.source_id = ANY(${sourceIds}::text[]))
+          OR (${sourceIds}::text[] IS NULL AND ${sourceId}::text IS NOT NULL AND p.source_id = ${sourceId})
+          OR (${sourceIds}::text[] IS NULL AND ${sourceId}::text IS NULL)
+        )
         AND (
           ${opts.takesHoldersAllowList ?? null}::text[] IS NULL
           OR t.holder = ANY(${opts.takesHoldersAllowList ?? null}::text[])
