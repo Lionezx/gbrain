@@ -304,6 +304,10 @@ export interface TakesListOpts {
   resolved?: boolean;       // true = only resolved; false = only unresolved; undefined = both
   /** Per-token MCP allow-list. Server applies AND holder = ANY($takesHoldersAllowList) when set. */
   takesHoldersAllowList?: string[];
+  /** Scope to a single source (via the takes→pages join). Unset = all sources. */
+  sourceId?: string;
+  /** Federated scope — wins over `sourceId` when non-empty (same precedence as SearchOpts). */
+  sourceIds?: string[];
   sortBy?: 'weight' | 'since_date' | 'created_at';
   limit?: number;
   offset?: number;

@@ -1739,6 +1739,9 @@ const takes_list: Operation = {
       // Per-token allow-list — server-side filter for MCP-bound calls.
       // Local CLI callers leave takesHoldersAllowList unset and see all holders.
       takesHoldersAllowList: ctx.takesHoldersAllowList,
+      // Source scope — same threading as the other read handlers. Takes inherit
+      // their parent page's source; an unscoped list crosses source walls.
+      ...sourceScopeOpts(ctx),
     });
   },
   cliHints: { name: 'takes-list' },
@@ -1756,6 +1759,8 @@ const takes_search: Operation = {
     return ctx.engine.searchTakes(p.query as string, {
       limit: p.limit as number | undefined,
       takesHoldersAllowList: ctx.takesHoldersAllowList,
+      // Source scope — same threading as the other read handlers.
+      ...sourceScopeOpts(ctx),
     });
   },
   cliHints: { name: 'takes-search', positional: ['query'] },

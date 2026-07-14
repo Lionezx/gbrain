@@ -4566,11 +4566,19 @@ export class PostgresEngine implements BrainEngine {
     const limit = clampSearchLimit(opts.limit, 100, 500);
     const offset = Math.max(0, Math.floor(opts.offset ?? 0));
     const active = opts.active ?? true;
+    // Source scoping (federated array wins over scalar) — mirrors the hybridSearch predicate.
+    const sourceIds = opts.sourceIds ?? null;
+    const sourceId = opts.sourceId ?? null;
     const rows = await sql`
       SELECT t.*, p.slug AS page_slug
       FROM takes t
       JOIN pages p ON p.id = t.page_id
       WHERE 1=1
+        AND (
+          (${sourceIds}::text[] IS NOT NULL AND p.source_id = ANY(${sourceIds}::text[]))
+          OR (${sourceIds}::text[] IS NULL AND ${sourceId}::text IS NOT NULL AND p.source_id = ${sourceId})
+          OR (${sourceIds}::text[] IS NULL AND ${sourceId}::text IS NULL)
+        )
         AND (${opts.page_id ?? null}::int   IS NULL OR t.page_id = ${opts.page_id ?? null}::int)
         AND (${opts.page_slug ?? null}::text IS NULL OR p.slug   = ${opts.page_slug ?? null}::text)
         AND (${opts.holder ?? null}::text   IS NULL OR t.holder  = ${opts.holder ?? null}::text)
